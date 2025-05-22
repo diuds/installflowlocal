@@ -36,6 +36,7 @@ read -p "Digite o subdomínio (ex: flow.nortelab.cloud): " DOMAIN
 read -p "Digite o e-mail associado à conta da Cloudflare: " CF_EMAIL
 read -p "Cole a chave Global API da Cloudflare: " CF_API_KEY
 read -p "Digite o e-mail de contato para o Let's Encrypt (Certbot): " LETSENCRYPT_EMAIL
+read -p "Digite uma senha para o banco de dados PostgreSQL: " DB_PASSWORD
 
 # Atualizar sistema
 sudo apt update && sudo apt upgrade -y
@@ -106,11 +107,33 @@ services:
       - N8N_BASIC_AUTH_USER=admin
       - N8N_BASIC_AUTH_PASSWORD=admin
       - WEBHOOK_URL=https://$DOMAIN/
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=n8n
+      - DB_POSTGRESDB_USER=n8n
+      - DB_POSTGRESDB_PASSWORD=$DB_PASSWORD
     volumes:
       - n8n_data:/home/node/.n8n
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:14
+    restart: always
+    environment:
+      - POSTGRES_USER=n8n
+      - POSTGRES_PASSWORD=$DB_PASSWORD
+      - POSTGRES_DB=n8n
+      - POSTGRES_NON_ROOT_USER=n8n
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
 
 volumes:
   n8n_data:
+  postgres_data:
 EOF
 
 # Subir container
@@ -151,5 +174,6 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "✅ N8N instalado com sucesso e acessível via HTTPS!"
 echo "🌐 URL: https://$DOMAIN"
 echo "🔐 Usuário: admin | Senha: admin"
+echo "🗄️ Banco de dados PostgreSQL configurado e persistente"
 echo "📌 Recomenda-se alterar a senha após o primeiro login."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
