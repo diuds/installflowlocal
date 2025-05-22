@@ -37,23 +37,28 @@ read -p "Digite o e-mail associado à conta da Cloudflare: " CF_EMAIL
 read -p "Cole a chave Global API da Cloudflare: " CF_API_KEY
 read -p "Digite o e-mail de contato para o Let's Encrypt (Certbot): " LETSENCRYPT_EMAIL
 
-# Atualizar sistema
-sudo apt update && sudo apt install -y docker.io docker-compose nginx snapd curl unzip ufw
+# Atualizar sistema e instalar dependências
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y docker.io docker-compose-plugin nginx snapd curl unzip ufw
 
-# Configurar firewall (opcional)
+# Configurar firewall
 sudo ufw allow OpenSSH
 sudo ufw allow 80
 sudo ufw allow 443
 sudo ufw --force enable
 
-# Instalar certbot e plugin Cloudflare
-sudo snap install core; sudo snap refresh core
+# Iniciar e habilitar serviços
+sudo systemctl enable docker && sudo systemctl start docker
+sudo systemctl enable nginx && sudo systemctl start nginx
+
+# Instalar Certbot e plugin DNS Cloudflare
+sudo snap install core && sudo snap refresh core
 sudo snap install --classic certbot
-sudo ln -sf /snap/bin/certbot /usr/bin/certbot
+sudo ln -s /snap/bin/certbot /usr/bin/certbot
 sudo snap set certbot trust-plugin-with-root=ok
 sudo snap install certbot-dns-cloudflare
 
-# Criar credenciais da Cloudflare
+# Criar credenciais Cloudflare
 mkdir -p ~/.secrets/certbot
 CLOUDFLARE_FILE=~/.secrets/certbot/cloudflare.ini
 cat <<EOF > $CLOUDFLARE_FILE
@@ -74,14 +79,9 @@ sudo certbot certonly \
 # Criar pasta do projeto N8N
 mkdir -p ~/n8n && cd ~/n8n
 
-# Instalar Docker Composer
-curl -fsSL https://get.docker.com | sudo bash
-sudo usermod -aG docker $USER
-
-
 # Criar docker-compose.yml
 cat <<EOF > docker-compose.yml
-version: "3.1"
+version: "3.8"
 services:
   n8n:
     image: n8nio/n8n
@@ -100,10 +100,10 @@ volumes:
   n8n_data:
 EOF
 
-# Subir o container
-docker-compose up -d
+# Subir container
+docker compose up -d
 
-# Criar configuração NGINX
+# Configurar NGINX
 sudo tee /etc/nginx/sites-available/$DOMAIN > /dev/null <<EOF
 server {
     listen 80;
@@ -132,6 +132,7 @@ EOF
 sudo ln -s /etc/nginx/sites-available/$DOMAIN /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl restart nginx
 
+# Finalização
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "✅ N8N instalado com sucesso e acessível via HTTPS!"
